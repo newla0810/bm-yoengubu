@@ -126,6 +126,13 @@ details.more>summary{cursor:pointer;color:var(--sub);padding:4px 2px}
 .chk.on i{background:var(--accent);border-color:var(--accent)}.chk.on i:after{content:'';position:absolute;left:4.5px;top:1px;width:4px;height:9px;border:solid var(--panel);border-width:0 2px 2px 0;transform:rotate(45deg)}.chk.on span{color:var(--sub)}
 .done-btn.cnt{font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:.5px}.done-btn.cnt.on{border-color:var(--accent);color:var(--accent)}
 .in1:disabled{opacity:.45}
+.loading{flex:1 1 auto;max-width:900px;width:100%;margin:0 auto;padding:44px 28px}.loading[hidden]{display:none}
+.ld-msg{font-size:16px;font-weight:600;color:var(--sub);margin-bottom:18px}.ld-msg.err{color:var(--hot)}.ld-act{margin-bottom:22px}.ld-act[hidden]{display:none}
+.ld-list{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.ld-list[hidden]{display:none}
+.ld-row{display:grid;grid-template-columns:58px 1fr 78px;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);animation:ldp 1.3s ease-in-out infinite}.ld-row:last-child{border-bottom:0}
+.ld-row:nth-child(2){animation-delay:.12s}.ld-row:nth-child(3){animation-delay:.24s}.ld-row:nth-child(4){animation-delay:.36s}.ld-row:nth-child(5){animation-delay:.48s}.ld-row:nth-child(6){animation-delay:.6s}
+.ld-row i,.ld-row b,.ld-row em,.ld-row u{display:block;background:var(--seg);border-radius:6px}.ld-row i{width:34px;height:34px;margin:0 auto}.ld-row b{height:14px}.ld-row em{height:10px;margin-top:8px}.ld-row u{height:32px;border-radius:9px}
+@keyframes ldp{0%,100%{opacity:1}50%{opacity:.45}}@media (prefers-reduced-motion: reduce){.ld-row{animation:none}}
 .mvrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}.btn:disabled{opacity:.4;cursor:default}
 .edbox .now{font-size:13.5px;line-height:1.55;color:var(--ink);background:var(--accent-tint);border-radius:8px;padding:9px 12px}
 .btn{display:inline-flex;align-items:center;min-height:40px;padding:0 15px;border-radius:8px;border:1px solid var(--accent);background:var(--panel);color:var(--accent);font-size:13.5px;font-weight:500;cursor:pointer;text-decoration:none}
@@ -179,6 +186,7 @@ textarea.in1{padding:8px 10px;min-height:96px;resize:vertical}
 <div class="banner" id="banner" hidden></div>
 <div class="editbar" id="editbar" hidden><span><b>수정 중입니다.</b> 고친 내용은 칸마다 ‘저장’을 눌러야 저장됩니다.</span><button type="button" class="btn sm" data-editoff="1">수정 완료</button></div>
 
+<div class="loading" id="loading" hidden role="status" aria-live="polite"><div class="ld-msg" id="ld-msg">자료를 불러오는 중입니다</div><div class="ld-act" id="ld-act" hidden><button type="button" class="btn solid" id="ld-retry">다시 시도</button></div><div class="ld-list" id="ld-list" aria-hidden="true"><div class="ld-row"><i></i><span><b style="width:46%"></b><em style="width:22%"></em></span><u></u></div><div class="ld-row"><i></i><span><b style="width:62%"></b><em style="width:30%"></em></span><u></u></div><div class="ld-row"><i></i><span><b style="width:38%"></b><em style="width:18%"></em></span><u></u></div><div class="ld-row"><i></i><span><b style="width:54%"></b><em style="width:26%"></em></span><u></u></div><div class="ld-row"><i></i><span><b style="width:44%"></b><em style="width:20%"></em></span><u></u></div><div class="ld-row"><i></i><span><b style="width:58%"></b><em style="width:28%"></em></span><u></u></div></div></div>
 <main id="main">
   <section class="view" id="v-week"><div id="week-hero"></div><details class="more" id="week-past" hidden></details><div class="two" id="week-two"></div><details class="more" id="week-more"></details><div class="card" id="flow"></div></section>
   <section class="view" id="v-areas"><div class="area-wrap"><div class="side" id="side"></div><div class="area-main"><div class="hl" id="area-head"></div><div class="acc" id="acc"></div></div></div></section>
@@ -983,16 +991,23 @@ $('year').addEventListener('change', function(){ S.year = this.value; S.round = 
 $('q').addEventListener('input', function(){ S.fsel = null; S.fkind = ''; renderFind(); });
 window.addEventListener('hashchange', show);
 
-function boot(data, note){ D = data; S.wv = store.get('proc-wv') === 'time' ? 'time' : 'area'; if (note){ $('banner').hidden = false; $('banner').textContent = note; } $('main').style.display = ''; prepare(); hashReady = true; show(); }
+var booted = false, ldTimer = 0;
+function loading(on, err){ var el = $('loading'); clearTimeout(ldTimer); if (!on){ el.hidden = true; return; }
+  el.hidden = false; $('main').style.display = 'none'; $('ld-msg').className = 'ld-msg' + (err ? ' err' : ''); $('ld-msg').textContent = err || '자료를 불러오는 중입니다'; $('ld-act').hidden = !err; $('ld-list').hidden = !!err;
+  if (!err) ldTimer = setTimeout(function(){ $('ld-msg').textContent = '평소보다 오래 걸리고 있습니다. 조금만 기다려 주세요'; }, 8000); }
+function boot(data, note){ booted = true; loading(false); D = data; S.wv = store.get('proc-wv') === 'time' ? 'time' : 'area'; if (note){ $('banner').hidden = false; $('banner').textContent = note; } $('main').style.display = ''; prepare(); hashReady = true; show(); }
 /* 자료 읽기: 암호 없이 읽고, 기억해 둔 수정 암호가 맞으면 '계정' 탭도 함께 받음 */
 function load(check){
+  if (!booted) loading(true);
+  var fail = function(msg){ if (booted){ toast(msg); return; } loading(true, msg); };   // 이미 화면이 떠 있으면(암호 확인 때) 알림만
   api({ action: 'read', pw: store.get('proc-edit') }).then(function(j){
-    if (!j.ok){ $('banner').hidden = false; $('banner').textContent = '자료를 읽지 못했습니다: ' + (j.error || ''); return; }
+    if (!j.ok){ fail('자료를 읽지 못했습니다' + (j.error ? ': ' + j.error : '') + '. 잠시 뒤 다시 시도해 주세요.'); return; }
     canEdit = !!j.edit; if (!canEdit) store.set('proc-edit', '');   // 맞지 않는 암호는 기억하지 않음
     boot(j.tabs);
     if (check) toast(canEdit ? '수정 암호를 확인했습니다. 이 컴퓨터에 기억해 둡니다' : '수정 암호가 맞지 않습니다');
-  }, function(){ boot(SAMPLE || {}, '자료 시트에 닿지 못해 견본 자료를 보여 줍니다. 잠시 뒤 새로 고쳐 주세요.'); });
+  }, function(){ fail('자료를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'); });
 }
+$('ld-retry').addEventListener('click', function(){ load(); });
 if (!CONFIG.ENDPOINT && !SAMPLE){ $('banner').hidden = false; $('banner').textContent = '자료 시트 연결 주소가 비어 있습니다. 이 파일 위쪽 CONFIG의 ENDPOINT에 Apps Script 웹 앱 주소를 넣어 주세요.'; $('main').style.display = 'none'; }
 else if (!CONFIG.ENDPOINT) boot(SAMPLE, '자료 시트에 아직 연결하지 않아 견본 자료(2026. 11. 18. 기준)를 보여 줍니다. 완료 표시와 고친 내용은 저장되지 않습니다.');
 else load();
